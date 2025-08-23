@@ -47,9 +47,8 @@ ENV_HEIGHT = 9000
 MAX_SPEED = 5000
 
 class MapPodRacing(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None):
+    def __init__(self):
         #self.action_space = gym.spaces.Discrete(9)
         self.action_space = spaces.Box(
             low=0.0,
@@ -80,20 +79,15 @@ class MapPodRacing(gym.Env):
         self.map = Map(self.seed)
 
         # render
-        self.window_width= ENV_WIDTH
-        self.window_heigh= ENV_HEIGHT
-        assert render_mode is None or render_mode in self.metadata["render_modes"]
-        self.render_mode = render_mode
-        self.window = None
-        self.clock = None
+        self.image_ratio = 100
+        self.image_width= ENV_WIDTH / self.image_ratio
+        self.image_heigh= ENV_HEIGHT / self.image_ratio
 
 
     def reset(self,seed: Optional[int] = None, options: Optional[dict] = None):
         # Return initial observation matching observation_space
         self.seed = uuid.uuid4().int & ((1 << 64) - 1)
         self.map =Map(self.seed)
-        if self.render_mode == "human":
-            self._render_frame()
         return np.zeros(8, dtype=np.float32), {}
 
 
@@ -105,47 +99,25 @@ class MapPodRacing(gym.Env):
         terminated = False
         truncated = False
         info = {}
-        if self.render_mode == "human":
-            self._render_frame()
         return obs, reward, terminated, truncated, info
 
     def render(self):
-        if self.render_mode == "rgb_array":
             return self._render_frame()
 
     def _render_frame(self):
-        if self.window is None and self.render_mode == "human":
-            pygame.init()
-            pygame.display.init()
-            self.window = pygame.display.set_mode(
-                (self.window_width, self.window_heigh)
-            )
-        if self.clock is None and self.render_mode == "human":
-            self.clock = pygame.time.Clock()
-
-        canvas = pygame.Surface((self.window_width, self.window_heigh))
+        canvas = pygame.Surface((self.image_width, self.image_heigh))
         canvas.fill((255, 255, 255))
 
         red = (255, 0, 0)
         dark_grey = (64, 64, 64)
         for checkpoint in self.map.check_points:
-            pygame.draw.circle(canvas, dark_grey, checkpoint, CHECKPOINT_RADIUS)
+            pygame.draw.circle(canvas, dark_grey, np.array(checkpoint)/self.image_ratio, CHECKPOINT_RADIUS/self.image_ratio)
         for pod in self.map.pods:
-            pygame.draw.circle(canvas, red, pod.position.get_tuple(), POD_RADIUS)
+            pygame.draw.circle(canvas, red, np.array(pod.position.get_tuple())/self.image_ratio, POD_RADIUS/self.image_ratio)
 
-        if self.render_mode == "human":
-            # The following line copies our drawings from `canvas` to the visible window
-            self.window.blit(canvas, canvas.get_rect())
-            pygame.event.pump()
-            pygame.display.update()
-
-            # We need to ensure that human-rendering occurs at the predefined framerate.
-            # The following line will automatically add a delay to keep the framerate stable.
-            self.clock.tick(self.metadata["render_fps"])
-        else:  # rgb_array
-            return np.transpose(
+        return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
-            )
+        )
 
     """def close(self):
         if self.window is not None:
