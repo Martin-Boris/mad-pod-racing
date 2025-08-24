@@ -8,24 +8,33 @@ from mad_pod_racing import MapPodRacing
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
 
-def print_hi():
+def simulate_one_game():
     gym.register(
         id="gymnasium_env/MapPodRacing-v0",
         entry_point=MapPodRacing,
         max_episode_steps=500,  # Prevent infinite episodes
     )
-    gym.pprint_registry()
     env = gym.make("gymnasium_env/MapPodRacing-v0")
     frames = []
-    env.reset()
-    frames.append(env.render())
-    env.close()
-    imageio.mimsave("cartpole_episode.gif", frames, fps=1)
+    observation, info = env.reset()
+
+    done = False
+    while not done:
+        action = env.action_space.sample()
+        observation, reward, terminated, truncated, info = env.step(action[0])
+        frames.append(env.render())
+        done = terminated or truncated
+
+    imageio.mimsave("mad_pod_episode.gif", frames, fps=10)
+
+    for i, frame in enumerate(frames):
+        filename = f"test_frames/frame_{i:04d}.png"  # Zero-padded numbering
+        imageio.imwrite(filename, frame)
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi()
+    simulate_one_game()
 
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/

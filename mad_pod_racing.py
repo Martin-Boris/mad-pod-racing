@@ -1,14 +1,17 @@
+import random
+from asyncio import timeout
+from collections import deque
 from typing import Optional
 
 import gymnasium as gym
 import numpy as np
 import uuid
 import pygame
+import math
 
 from gymnasium import spaces
 from gymnasium.core import RenderFrame
-from classes import Pod,Map,Vector, POD_RADIUS,CHECKPOINT_RADIUS
-
+from classes import Pod, Map, Vector, POD_RADIUS, CHECKPOINT_RADIUS, point_to_segment_distance, from_vector
 
 """
 Case sigmoid action space 9 discrete :
@@ -44,11 +47,21 @@ end :
 """
 ENV_WIDTH = 16000
 ENV_HEIGHT = 9000
-MAX_SPEED = 5000
+MAX_SPEED = 15000
+TIME_OUT = 100
+CP_REWARD = 1
+END_REWARD = 20
+TRAVEL_REWARD = -0.1
 
 class MapPodRacing(gym.Env):
 
     def __init__(self):
+        self.cp_queue = None
+        self.timeout = None
+        self.my_pod = None
+        self.reward = None
+        self.map = None
+        self.seed = None
         #self.action_space = gym.spaces.Discrete(9)
         self.action_space = spaces.Box(
             low=0.0,
@@ -62,21 +75,19 @@ class MapPodRacing(gym.Env):
             -2000, -2000,  # position x, y
             0, 0,  # checkpoint x, y
             0.0,  # distance (>= 0)
-            -0,  # angle (in radians)
+            -np.pi*2,  # angle (in radians)
             -MAX_SPEED, -MAX_SPEED  # speed x, y
         ], dtype=np.float32)
 
         high = np.array([
             ENV_WIDTH+2000, ENV_HEIGHT+2000,  # position x, y
             ENV_WIDTH, ENV_HEIGHT,  # checkpoint x, y
-            ENV_WIDTH*2,  # distance
+            ENV_WIDTH**2,  # distance
             np.pi*2,  # angle
             MAX_SPEED, MAX_SPEED  # speed x, y
         ], dtype=np.float32)
 
         self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
-        self.seed = uuid.uuid4().int & ((1 << 64) - 1)
-        self.map = Map(self.seed)
 
         # render
         self.image_ratio = 100
@@ -85,39 +96,89 @@ class MapPodRacing(gym.Env):
 
 
     def reset(self,seed: Optional[int] = None, options: Optional[dict] = None):
-        # Return initial observation matching observation_space
+        super().reset(seed=seed)
         self.seed = uuid.uuid4().int & ((1 << 64) - 1)
-        self.map =Map(self.seed)
-        return np.zeros(8, dtype=np.float32), {}
+        random.seed(self.seed)
+        self.map = Map(self.seed)
+        self.reward = 0
+        # Player information
+        self.my_pod = random.choice(self.map.pods)
+        self.timeout = TIME_OUT
+        self.cp_queue = deque(maxlen=18)
+        for _ in range(3):
+            self.cp_queue.extend(self.map.check_points)
+        last_cp = self.cp_queue.popleft()
+        self.cp_queue.append(last_cp)
+        return self.get_obs(), {}
 
-
+    def get_obs(self):
+        cp_x, cp_y = self.cp_queue[0]
+        distance = math.sqrt((self.my_pod.position.x - cp_x) ** 2 + (self.my_pod.position.y - cp_y) ** 2)
+        return np.array([self.my_pod.position.x, self.my_pod.position.y,
+                  self.cp_queue[0][0], self.cp_queue[0][1],
+                  distance,
+                  from_vector(self.my_pod.position, Vector(cp_x, cp_y)).angle(),
+                  self.my_pod.speed.x, self.my_pod.speed.y
+                  ], dtype=np.float32)
 
     def step(self, action):
-        # Dummy implementation
-        obs = np.zeros(8, dtype=np.float32)
-        reward = 0.0
+        # apply action on my pod
+        self.my_pod.update_acceleration_from_angle(action,100)
+        self.my_pod.apply_force(self.my_pod.acceleration)
+        self.my_pod.step()
+        self.my_pod.apply_friction()
+        self.my_pod.end_round()
         terminated = False
         truncated = False
+
+        if (self.my_pod.position.x < -2000
+                or self.my_pod.position.y < -2000
+                or self.my_pod.position.x > ENV_WIDTH+2000
+                or self.my_pod.position.y > ENV_HEIGHT+2000):
+            terminated = True
+        if point_to_segment_distance( self.cp_queue[0][0],  self.cp_queue[0][1],
+                                     self.my_pod.last_position.x, self.my_pod.last_position.y,
+                                    self.my_pod.position.x,   self.my_pod.position.y) <= CHECKPOINT_RADIUS:
+            self.cp_queue.popleft()
+            self.timeout = TIME_OUT
+            if len(self.cp_queue) ==0:
+                self.reward = END_REWARD
+                terminated = True
+            else:
+                self.reward += CP_REWARD
+        else:
+            self.reward += TRAVEL_REWARD
+            self.timeout -= 1
+            if self.timeout <= 0:
+                terminated = True
+
+        obs = self.get_obs()
         info = {}
-        return obs, reward, terminated, truncated, info
+        return obs, self.reward, terminated, truncated, info
 
     def render(self):
-            return self._render_frame()
-
-    def _render_frame(self):
         canvas = pygame.Surface((self.image_width, self.image_heigh))
         canvas.fill((255, 255, 255))
 
         red = (255, 0, 0)
+        past_red = (255, 100, 0)
+        blue = (0, 0, 255)
         dark_grey = (64, 64, 64)
         for checkpoint in self.map.check_points:
-            pygame.draw.circle(canvas, dark_grey, np.array(checkpoint)/self.image_ratio, CHECKPOINT_RADIUS/self.image_ratio)
-        for pod in self.map.pods:
-            pygame.draw.circle(canvas, red, np.array(pod.position.get_tuple())/self.image_ratio, POD_RADIUS/self.image_ratio)
+            pygame.draw.circle(canvas, dark_grey, np.array(checkpoint) / self.image_ratio,
+                               CHECKPOINT_RADIUS / self.image_ratio)
+        pygame.draw.circle(canvas, past_red, np.array(self.my_pod.last_position.get_tuple()) / self.image_ratio,
+                           POD_RADIUS / self.image_ratio)
+        pygame.draw.circle(canvas, red, np.array(self.my_pod.position.get_tuple()) / self.image_ratio,
+                               POD_RADIUS / self.image_ratio)
+        pygame.draw.line(canvas, blue, np.array(self.my_pod.last_position.get_tuple()) / self.image_ratio,
+                         np.array(self.my_pod.position.get_tuple()) / self.image_ratio, 1)
 
         return np.transpose(
-                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
+            np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
         )
+
+
 
     """def close(self):
         if self.window is not None:

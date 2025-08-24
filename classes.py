@@ -20,6 +20,22 @@ def short_angle_dist(a0, a1):
     da = (a1 - a0) % max_angle
     return (2 * da) % max_angle - da
 
+def point_to_segment_distance(px, py, x1, y1, x2, y2):
+    """Returns the distance from point (px, py) to the segment from (x1, y1) to (x2, y2)."""
+    # Handle degenerate segment case
+    dx = x2 - x1
+    dy = y2 - y1
+    if dx == dy == 0:
+        return math.hypot(px - x1, py - y1)
+
+    # Project point onto the segment, computing parameterized t
+    t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)
+    t = max(0, min(1, t))  # Clamp t to [0, 1]
+    nearest_x = x1 + t * dx
+    nearest_y = y1 + t * dy
+    return math.hypot(px - nearest_x, py - nearest_y)
+
+
 class Vector:
     def __init__(self, x, y):
         self.x = x
@@ -61,11 +77,10 @@ class Vector:
 class Pod:
     def __init__(self, x, y):
         self.position = Vector(x, y)
-        self.last_position = Vector(0, 0)
+        self.last_position = Vector(x, y)
         self.speed = Vector(0, 0)
         self.last_angle = None
         self.acceleration = Vector(0, 0)
-        self.power = 0
         self.speed = Vector(0, 0)
 
     def turn_update(self, x, y):
@@ -74,33 +89,37 @@ class Pod:
         self.position.x = x
         self.position.y = y
 
-    def applyForce(self, force):
+    def apply_force(self, force):
         self.speed = self.speed.add(force).mult(1)
 
+    def update_acceleration_from_angle(self,angle,power):
+        if self.last_angle is not None:
+            relative_angle = short_angle_dist(self.last_angle, angle)
+            if abs(relative_angle) >= _MAX_ROTATION_PER_TURN:
+                angle = self.last_angle + _MAX_ROTATION_PER_TURN * math.copysign(1, relative_angle)
+        print("angle :",angle)
+        self.last_angle = angle
+
+        direction = Vector(math.cos(angle), math.sin(angle))
+        self.acceleration = direction.normalize().mult(power)
+
+
     def update_acceleration(self, x, y, power):
-        self.power = power
         if self.position.x != x or self.position.y != y:
             angle = from_vector(self.position, Vector(x, y)).angle()
-
-            if self.last_angle is not None:
-                relative_angle = short_angle_dist(self.last_angle, angle)
-                if abs(relative_angle) >= _MAX_ROTATION_PER_TURN:
-                    angle = self.last_angle + _MAX_ROTATION_PER_TURN * math.copysign(1, relative_angle)
-
-            self.last_angle = angle
-
-            direction = Vector(math.cos(angle), math.sin(angle))
-            self.acceleration = direction.normalize().mult(power)
+            self.update_acceleration_from_angle(angle, power)
         else:
             self.acceleration = Vector(0, 0)
 
     def step(self):
+        self.last_position.x = self.position.x
+        self.last_position.y = self.position.y
         self.position = self.position.add(self.speed.mult(1))
 
     def apply_friction(self):
         self.speed = self.speed.mult(1 - _FRICTION)
 
-    def endRound(self):
+    def end_round(self):
         self.position = self.position.round()
         self.speed = self.speed.truncate()
 
