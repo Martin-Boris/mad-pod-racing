@@ -12,7 +12,7 @@ import math
 from gymnasium import spaces
 from gymnasium.core import RenderFrame
 from classes import Pod, Map, Vector, POD_RADIUS, CHECKPOINT_RADIUS, point_to_segment_distance, from_vector
-from rl_actor_critic import observation
+
 
 """
 Case sigmoid action space 9 discrete :
@@ -52,7 +52,7 @@ MAX_SPEED = 15000
 TIME_OUT = 100
 CP_REWARD = 1
 END_REWARD = 20
-TRAVEL_REWARD = -0.1
+TRAVEL_REWARD = 0
 
 class MapPodRacing(gym.Env):
 
@@ -122,7 +122,7 @@ class MapPodRacing(gym.Env):
         last_cp = self.cp_queue.popleft()
         self.cp_queue.append(last_cp)
         observation = self.get_obs()
-        return observation
+        return observation, {}
 
     def get_obs(self):
         cp_x, cp_y = self.cp_queue[0]
@@ -145,11 +145,11 @@ class MapPodRacing(gym.Env):
         terminated = False
         truncated = False
 
-        if (self.my_pod.position.x < -2000
+        '''if (self.my_pod.position.x < -2000
                 or self.my_pod.position.y < -2000
                 or self.my_pod.position.x > ENV_WIDTH+2000
                 or self.my_pod.position.y > ENV_HEIGHT+2000):
-            terminated = True
+            terminated = True'''
         if point_to_segment_distance( self.cp_queue[0][0],  self.cp_queue[0][1],
                                      self.my_pod.last_position.x, self.my_pod.last_position.y,
                                     self.my_pod.position.x,   self.my_pod.position.y) <= CHECKPOINT_RADIUS:
