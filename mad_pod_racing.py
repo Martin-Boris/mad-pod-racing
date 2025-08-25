@@ -23,7 +23,7 @@ Case sigmoid action space 9 discrete :
     - 180° or PI for angle 180
     - 225° or 5PI/4 for angle 225
     - 270° or 3PI/2 for angle 270
-    - 315° or 5PI/3 for angle 315
+    - 315° or 7PI/3 for angle 315
     
 Case Relu :
     - 1 Box between 0 and 2PI
@@ -62,13 +62,24 @@ class MapPodRacing(gym.Env):
         self.reward = None
         self.map = None
         self.seed = None
-        #self.action_space = gym.spaces.Discrete(9)
-        self.action_space = spaces.Box(
+        self.action_space = gym.spaces.Discrete(8)
+        self.angle_map = np.array([
+            0,  # 0°
+            np.pi / 4,  # 45°
+            np.pi / 2,  # 90°
+            3 * np.pi / 4,  # 135°
+            np.pi,  # 180°
+            5 * np.pi / 4,  # 225°
+            3 * np.pi / 2,  # 270°
+            7 * np.pi / 4  # 315°
+        ])
+
+        """self.action_space = spaces.Box(
             low=0.0,
             high=2 * np.pi,
             shape=(1,),
             dtype=np.float32
-        )
+        )"""
 
         # Observation space (Box of 8 values)
         low = np.array([
@@ -123,7 +134,8 @@ class MapPodRacing(gym.Env):
 
     def step(self, action):
         # apply action on my pod
-        self.my_pod.update_acceleration_from_angle(action,100)
+        angle = self.angle_map[action]
+        self.my_pod.update_acceleration_from_angle(angle,100)
         self.my_pod.apply_force(self.my_pod.acceleration)
         self.my_pod.step()
         self.my_pod.apply_friction()

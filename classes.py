@@ -97,7 +97,6 @@ class Pod:
             relative_angle = short_angle_dist(self.last_angle, angle)
             if abs(relative_angle) >= _MAX_ROTATION_PER_TURN:
                 angle = self.last_angle + _MAX_ROTATION_PER_TURN * math.copysign(1, relative_angle)
-        print("angle :",angle)
         self.last_angle = angle
 
         direction = Vector(math.cos(angle), math.sin(angle))
