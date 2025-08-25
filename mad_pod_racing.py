@@ -12,6 +12,7 @@ import math
 from gymnasium import spaces
 from gymnasium.core import RenderFrame
 from classes import Pod, Map, Vector, POD_RADIUS, CHECKPOINT_RADIUS, point_to_segment_distance, from_vector
+from rl_actor_critic import observation
 
 """
 Case sigmoid action space 9 discrete :
@@ -120,7 +121,8 @@ class MapPodRacing(gym.Env):
             self.cp_queue.extend(self.map.check_points)
         last_cp = self.cp_queue.popleft()
         self.cp_queue.append(last_cp)
-        return self.get_obs(), {}
+        observation = self.get_obs()
+        return observation
 
     def get_obs(self):
         cp_x, cp_y = self.cp_queue[0]
