@@ -66,7 +66,7 @@ class MapPodRacing(gym.Env):
         self.seed = None
         self.cp_done = 0
         self.action_space = gym.spaces.Discrete(8)
-        self.angle_map = np.array([
+        '''self.angle_map = np.array([
             0,  # 0°
             np.pi / 4,  # 45°
             np.pi / 2,  # 90°
@@ -75,6 +75,21 @@ class MapPodRacing(gym.Env):
             5 * np.pi / 4,  # 225°
             3 * np.pi / 2,  # 270°
             7 * np.pi / 4  # 315°
+        ])'''
+
+        self.angle_map = np.array([
+            0,  # 0°
+            np.pi / 6,  # 30°
+            np.pi / 3,  # 60°
+            np.pi / 2,  # 90°
+            2 * np.pi / 3,  # 120°
+            5 * np.pi / 6,  # 150°
+            np.pi,  # 180°
+            7 * np.pi / 6,  # 210°
+            4 * np.pi / 3,  # 240°
+            3 * np.pi / 2,  # 270°
+            5 * np.pi / 3,  # 300°
+            11 * np.pi / 6  # 330°
         ])
 
         """self.action_space = spaces.Box(
@@ -174,7 +189,7 @@ class MapPodRacing(gym.Env):
                 terminated = True
         self.trajectory_reward += reward
         obs = self.get_obs()
-        info = {"cp_done": self.cp_done}
+        info = {"cp_completion": 1-(len(self.cp_queue)/ (len(self.map.check_points)*3))}
         return obs, reward, terminated, truncated, info
 
     def render(self):

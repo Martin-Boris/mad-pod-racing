@@ -66,27 +66,27 @@ if __name__ == '__main__':
         max_episode_steps=500,  # Prevent infinite episodes
     )
     env = gym.make("gymnasium_env/MapPodRacing-v0")
-    agent = Agent(gamma=0.99,epsilon=1.0,batch_size=500,n_actions=8,eps_end=0.001,input_dims=[8],lr=0.01)
+    agent = Agent(gamma=0.99,epsilon=1.0,batch_size=500,n_actions=12,eps_end=0.01,input_dims=[8],lr=0.003)
     scores =[]
     eps_history= []
     cp_dones = []
-    n_games = 200
+    n_games = 1000
 
     for i in range(n_games):
         score = 0
-        cp_done = 0
+        cp_completion = 0
         done = False
         observation, info = env.reset()
         while not done:
             action = agent.choose_action(observation)
             observation_, reward, done, truncated, info = env.step(action)
             score += reward
-            cp_done = info["cp_done"]
+            cp_completion = info["cp_completion"]
             agent.store_transition(observation, action, reward, observation_, done)
             agent.learn()
             observation = observation_
         scores.append(score)
-        cp_dones.append(cp_done)
+        cp_dones.append(cp_completion)
         eps_history.append(agent.epsilon)
         avg_score = np.mean(scores[-100:])
         avg_cp_done = np.mean(cp_dones[-100:])

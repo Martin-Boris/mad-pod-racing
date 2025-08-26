@@ -71,19 +71,22 @@ class Agent:
             target_angle = observation[5]  # angle to cp (in radians)
             angles = np.array([
                 0,  # 0°
-                np.pi / 4,  # 45°
+                np.pi / 6,  # 30°
+                np.pi / 3,  # 60°
                 np.pi / 2,  # 90°
-                3 * np.pi / 4,  # 135°
+                2 * np.pi / 3,  # 120°
+                5 * np.pi / 6,  # 150°
                 np.pi,  # 180°
-                5 * np.pi / 4,  # 225°
+                7 * np.pi / 6,  # 210°
+                4 * np.pi / 3,  # 240°
                 3 * np.pi / 2,  # 270°
-                7 * np.pi / 4  # 315°
+                5 * np.pi / 3,  # 300°
+                11 * np.pi / 6  # 330°
             ])
             # Normalize angular differences to [-π, π]
             angle_diffs = np.abs((angles - target_angle + np.pi) % (2 * np.pi) - np.pi)
 
             action = np.argmin(angle_diffs)
-
 
         return action
 
