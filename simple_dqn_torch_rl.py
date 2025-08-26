@@ -61,7 +61,25 @@ class Agent:
             action = self.Q_eval.forward(state)
             action = T.argmax(action).item()
         else:
-            action = np.random.choice(self.action_space)
+            # action = np.random.choice(self.action_space)
+            ## to facilitate learning best angle
+
+            target_angle = observation[5]  # angle to cp (in radians)
+            angles = np.array([
+                0,  # 0°
+                np.pi / 4,  # 45°
+                np.pi / 2,  # 90°
+                3 * np.pi / 4,  # 135°
+                np.pi,  # 180°
+                5 * np.pi / 4,  # 225°
+                3 * np.pi / 2,  # 270°
+                7 * np.pi / 4  # 315°
+            ])
+            # Normalize angular differences to [-π, π]
+            angle_diffs = np.abs((angles - target_angle + np.pi) % (2 * np.pi) - np.pi)
+
+            action = np.argmin(angle_diffs)
+
 
         return action
 

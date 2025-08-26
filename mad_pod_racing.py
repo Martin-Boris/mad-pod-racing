@@ -52,7 +52,8 @@ MAX_SPEED = 15000
 TIME_OUT = 100
 CP_REWARD = 1
 END_REWARD = 20
-TRAVEL_REWARD = -0.1
+TRAVEL_REWARD = 0#-0.1
+OUT_SCREEN_REWARD = 0#-100
 
 class MapPodRacing(gym.Env):
 
@@ -60,7 +61,7 @@ class MapPodRacing(gym.Env):
         self.cp_queue = None
         self.timeout = None
         self.my_pod = None
-        self.reward = None
+        self.trajectory_reward = None
         self.map = None
         self.seed = None
         self.action_space = gym.spaces.Discrete(8)
@@ -102,7 +103,7 @@ class MapPodRacing(gym.Env):
         self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
 
         # render
-        self.image_ratio = 100
+        self.image_ratio = 25
         self.image_width= ENV_WIDTH / self.image_ratio
         self.image_heigh= ENV_HEIGHT / self.image_ratio
 
@@ -112,7 +113,7 @@ class MapPodRacing(gym.Env):
         self.seed = uuid.uuid4().int & ((1 << 64) - 1)
         random.seed(self.seed)
         self.map = Map(self.seed)
-        self.reward = 0
+        self.trajectory_reward = 0
         # Player information
         self.my_pod = random.choice(self.map.pods)
         self.timeout = TIME_OUT
@@ -122,13 +123,15 @@ class MapPodRacing(gym.Env):
         last_cp = self.cp_queue.popleft()
         self.cp_queue.append(last_cp)
         observation = self.get_obs()
-        return observation, {}
+        return observation, { 'cp': self.cp_queue}
 
     def get_obs(self):
-        cp_x, cp_y = self.cp_queue[0]
+        cp_x, cp_y = 0,0
+        if len(self.cp_queue) > 0:
+            cp_x, cp_y = self.cp_queue[0]
         distance = math.sqrt((self.my_pod.position.x - cp_x) ** 2 + (self.my_pod.position.y - cp_y) ** 2)
         return np.array([self.my_pod.position.x, self.my_pod.position.y,
-                  self.cp_queue[0][0], self.cp_queue[0][1],
+                  cp_x, cp_y,
                   distance,
                   from_vector(self.my_pod.position, Vector(cp_x, cp_y)).angle(),
                   self.my_pod.speed.x, self.my_pod.speed.y
@@ -144,12 +147,13 @@ class MapPodRacing(gym.Env):
         self.my_pod.end_round()
         terminated = False
         truncated = False
+        reward =0
 
         if (self.my_pod.position.x < -2000
                 or self.my_pod.position.y < -2000
                 or self.my_pod.position.x > ENV_WIDTH+2000
                 or self.my_pod.position.y > ENV_HEIGHT+2000):
-            self.reward = -100
+            reward = OUT_SCREEN_REWARD
             terminated = True
         if point_to_segment_distance( self.cp_queue[0][0],  self.cp_queue[0][1],
                                      self.my_pod.last_position.x, self.my_pod.last_position.y,
@@ -157,31 +161,39 @@ class MapPodRacing(gym.Env):
             self.cp_queue.popleft()
             self.timeout = TIME_OUT
             if len(self.cp_queue) ==0:
-                self.reward = END_REWARD
+                reward = END_REWARD
                 terminated = True
             else:
-                self.reward += CP_REWARD
+                reward = CP_REWARD
         else:
-            self.reward += TRAVEL_REWARD
+            reward += TRAVEL_REWARD
             self.timeout -= 1
             if self.timeout <= 0:
                 terminated = True
-
+        self.trajectory_reward += reward
         obs = self.get_obs()
         info = {}
-        return obs, self.reward, terminated, truncated, info
+        return obs, reward, terminated, truncated, info
 
     def render(self):
         canvas = pygame.Surface((self.image_width, self.image_heigh))
         canvas.fill((255, 255, 255))
-
+        pygame.font.init()
         red = (255, 0, 0)
         past_red = (255, 100, 0)
         blue = (0, 0, 255)
         dark_grey = (64, 64, 64)
+        font = pygame.font.Font(None, 36)
+        text = font.render(str(self.trajectory_reward), True, blue)
+        canvas.blit(text, (10,10))
+
+        cp_order = 0
         for checkpoint in self.map.check_points:
             pygame.draw.circle(canvas, dark_grey, np.array(checkpoint) / self.image_ratio,
                                CHECKPOINT_RADIUS / self.image_ratio)
+            cp_text = font.render(str(cp_order), True, blue)
+            canvas.blit(cp_text, (checkpoint[0] / self.image_ratio, checkpoint[1] / self.image_ratio))
+            cp_order +=1
         pygame.draw.circle(canvas, past_red, np.array(self.my_pod.last_position.get_tuple()) / self.image_ratio,
                            POD_RADIUS / self.image_ratio)
         pygame.draw.circle(canvas, red, np.array(self.my_pod.position.get_tuple()) / self.image_ratio,

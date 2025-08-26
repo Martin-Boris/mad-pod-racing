@@ -66,10 +66,10 @@ if __name__ == '__main__':
         max_episode_steps=500,  # Prevent infinite episodes
     )
     env = gym.make("gymnasium_env/MapPodRacing-v0")
-    agent = Agent(gamma=0.99,epsilon=1.0,batch_size=64,n_actions=8,eps_end=0.1,input_dims=[8],lr=0.01)
+    agent = Agent(gamma=0.99,epsilon=1.0,batch_size=500,n_actions=8,eps_end=0.1,input_dims=[8],lr=0.1)
     scores =[]
     eps_history= []
-    n_games = 500
+    n_games = 200
 
     for i in range(n_games):
         score = 0
@@ -92,19 +92,22 @@ if __name__ == '__main__':
         filename = "mad_pod_racing_dqn.png"
         #plot_learning_curve(x, scores, agent.epsilon, filename)
 
+
     score = 0
-    done = False
-    observation, info = env.reset()
-    frames = [env.render()]
-    with T.no_grad():
-        while not done:
-            action = agent.choose_action(observation)
-            observation_, reward, done, truncated, info = env.step(action)
-            score += reward
-            frames.append(env.render())
-            observation = observation_
-    print(score)
-    print(round)
+    frames = []
+    while score < 4:
+        score =0
+        done = False
+        observation, info = env.reset()
+        frames = [env.render()]
+        with T.no_grad():
+            while not done:
+                action = agent.choose_action(observation)
+                observation_, reward, done, truncated, info = env.step(action)
+                score += reward
+                frames.append(env.render())
+                observation = observation_
+    print("score ",str(score))
     imageio.mimsave("mad_pod_episode.gif", frames, fps=10)
 
 
