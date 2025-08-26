@@ -1,11 +1,12 @@
 import gymnasium as gym
+import numpy as np
+from matplotlib import pyplot as plt
+from simple_dqn_torch_rl import Agent
+import torch as T
+
 import imageio
 
 from mad_pod_racing import MapPodRacing
-# This is a sample Python script.
-
-# Press Maj+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
 
 def simulate_one_game():
@@ -31,10 +32,83 @@ def simulate_one_game():
         filename = f"test_frames/frame_{i:04d}.png"  # Zero-padded numbering
         imageio.imwrite(filename, frame)
 
+def plot_learning_curve(x, scores, epsilon, filename):
+    fig=plt.figure()
+    ax=fig.add_subplot(111,label="1")
+    ax2=fig.add_subplot(111,label="2", frame_on=False)
 
-# Press the green button in the gutter to run the script.
+    ax.plot(x,epsilon, color="C0")
+    ax.set_xlabel("Training Steps", color="C0")
+    ax.set_ylabel("Epsilon", color="C0")
+    ax.tick_params(axis="x", labelcolor="C0")
+    ax.tick_params(axis="y", labelcolor="C0")
+
+    N=len(scores)
+
+    running_avg=np.empty(N)
+    for t in range(N):
+        running_avg[t] = np.mean(scores[max(0, t-20):(t+1)])
+
+    ax2.scatter(x, running_avg, color="C1")
+    ax2.axes.get_xaxis().set_visible(False)
+    ax2.yaxis.tick_right()
+    ax2.set_ylabel("score", color="C1")
+    ax2.yaxis.set_label_position("right")
+    ax2.tick_params(axis="y", labelcolor="C1")
+
+    plt.savefig(filename)
+
+
 if __name__ == '__main__':
-    simulate_one_game()
+    gym.register(
+        id="gymnasium_env/MapPodRacing-v0",
+        entry_point=MapPodRacing,
+        max_episode_steps=500,  # Prevent infinite episodes
+    )
+    env = gym.make("gymnasium_env/MapPodRacing-v0")
+    agent = Agent(gamma=0.99,epsilon=1.0,batch_size=64,n_actions=8,eps_end=0.1,input_dims=[8],lr=0.01)
+    scores =[]
+    eps_history= []
+    n_games = 500
+
+    for i in range(n_games):
+        score = 0
+        done = False
+        observation, info = env.reset()
+        while not done:
+            action = agent.choose_action(observation)
+            observation_, reward, done, truncated, info = env.step(action)
+            score += reward
+            agent.store_transition(observation, action, reward, observation_, done)
+            agent.learn()
+            observation = observation_
+        scores.append(score)
+        eps_history.append(agent.epsilon)
+        avg_score = np.mean(scores[-100:])
+
+        print('episode ', i, ' score %.2f' % score, 'avg score %.2f' % avg_score, 'epsilon %.2f' % agent.epsilon)
+
+        x= [i+1 for i in range(n_games)]
+        filename = "mad_pod_racing_dqn.png"
+        #plot_learning_curve(x, scores, agent.epsilon, filename)
+
+    score = 0
+    done = False
+    observation, info = env.reset()
+    frames = [env.render()]
+    with T.no_grad():
+        while not done:
+            action = agent.choose_action(observation)
+            observation_, reward, done, truncated, info = env.step(action)
+            score += reward
+            frames.append(env.render())
+            observation = observation_
+    print(score)
+    print(round)
+    imageio.mimsave("mad_pod_episode.gif", frames, fps=10)
 
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+
+
+
+

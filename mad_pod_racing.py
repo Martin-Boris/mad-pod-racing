@@ -52,7 +52,7 @@ MAX_SPEED = 15000
 TIME_OUT = 100
 CP_REWARD = 1
 END_REWARD = 20
-TRAVEL_REWARD = 0
+TRAVEL_REWARD = -0.1
 
 class MapPodRacing(gym.Env):
 
@@ -94,7 +94,7 @@ class MapPodRacing(gym.Env):
         high = np.array([
             ENV_WIDTH+2000, ENV_HEIGHT+2000,  # position x, y
             ENV_WIDTH, ENV_HEIGHT,  # checkpoint x, y
-            ENV_WIDTH**2,  # distance
+            ENV_WIDTH*2,  # distance
             np.pi*2,  # angle
             MAX_SPEED, MAX_SPEED  # speed x, y
         ], dtype=np.float32)
@@ -145,11 +145,12 @@ class MapPodRacing(gym.Env):
         terminated = False
         truncated = False
 
-        '''if (self.my_pod.position.x < -2000
+        if (self.my_pod.position.x < -2000
                 or self.my_pod.position.y < -2000
                 or self.my_pod.position.x > ENV_WIDTH+2000
                 or self.my_pod.position.y > ENV_HEIGHT+2000):
-            terminated = True'''
+            self.reward = -100
+            terminated = True
         if point_to_segment_distance( self.cp_queue[0][0],  self.cp_queue[0][1],
                                      self.my_pod.last_position.x, self.my_pod.last_position.y,
                                     self.my_pod.position.x,   self.my_pod.position.y) <= CHECKPOINT_RADIUS:
