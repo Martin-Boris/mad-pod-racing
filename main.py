@@ -66,27 +66,32 @@ if __name__ == '__main__':
         max_episode_steps=500,  # Prevent infinite episodes
     )
     env = gym.make("gymnasium_env/MapPodRacing-v0")
-    agent = Agent(gamma=0.99,epsilon=1.0,batch_size=500,n_actions=8,eps_end=0.01,input_dims=[8],lr=0.01)
+    agent = Agent(gamma=0.99,epsilon=1.0,batch_size=500,n_actions=8,eps_end=0.001,input_dims=[8],lr=0.01)
     scores =[]
     eps_history= []
+    cp_dones = []
     n_games = 200
 
     for i in range(n_games):
         score = 0
+        cp_done = 0
         done = False
         observation, info = env.reset()
         while not done:
             action = agent.choose_action(observation)
             observation_, reward, done, truncated, info = env.step(action)
             score += reward
+            cp_done = info["cp_done"]
             agent.store_transition(observation, action, reward, observation_, done)
             agent.learn()
             observation = observation_
         scores.append(score)
+        cp_dones.append(cp_done)
         eps_history.append(agent.epsilon)
         avg_score = np.mean(scores[-100:])
+        avg_cp_done = np.mean(cp_dones[-100:])
 
-        print('episode ', i, ' score %.2f' % score, 'avg score %.2f' % avg_score, 'epsilon %.2f' % agent.epsilon)
+        print('episode ', i, ' score %.2f' % score, 'avg score %.2f' % avg_score, 'epsilon %.2f' % agent.epsilon, 'avg cp %.2f' % avg_cp_done)
 
         x= [i+1 for i in range(n_games)]
         filename = "mad_pod_racing_dqn.png"
@@ -94,19 +99,16 @@ if __name__ == '__main__':
 
 
     score = 0
-    frames = []
-    while score < 4:
-        score =0
-        done = False
-        observation, info = env.reset()
-        frames = [env.render()]
-        with T.no_grad():
-            while not done:
-                action = agent.choose_action(observation)
-                observation_, reward, done, truncated, info = env.step(action)
-                score += reward
-                frames.append(env.render())
-                observation = observation_
+    done = False
+    observation, info = env.reset()
+    frames = [env.render()]
+    with T.no_grad():
+        while not done:
+            action = agent.choose_action(observation)
+            observation_, reward, done, truncated, info = env.step(action)
+            score += reward
+            frames.append(env.render())
+            observation = observation_
     print("score ",str(score))
     imageio.mimsave("mad_pod_episode.gif", frames, fps=10)
 

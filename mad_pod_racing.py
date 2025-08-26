@@ -52,7 +52,7 @@ MAX_SPEED = 15000
 TIME_OUT = 100
 CP_REWARD = 1
 END_REWARD = 20
-TRAVEL_REWARD = 0#-0.1
+TRAVEL_REWARD = -0.01
 OUT_SCREEN_REWARD = 0#-100
 
 class MapPodRacing(gym.Env):
@@ -64,6 +64,7 @@ class MapPodRacing(gym.Env):
         self.trajectory_reward = None
         self.map = None
         self.seed = None
+        self.cp_done = 0
         self.action_space = gym.spaces.Discrete(8)
         self.angle_map = np.array([
             0,  # 0°
@@ -117,6 +118,7 @@ class MapPodRacing(gym.Env):
         # Player information
         self.my_pod = random.choice(self.map.pods)
         self.timeout = TIME_OUT
+        self.cp_done = 0
         self.cp_queue = deque(maxlen=18)
         for _ in range(3):
             self.cp_queue.extend(self.map.check_points)
@@ -154,7 +156,6 @@ class MapPodRacing(gym.Env):
                 or self.my_pod.position.x > ENV_WIDTH+2000
                 or self.my_pod.position.y > ENV_HEIGHT+2000):
             reward = OUT_SCREEN_REWARD
-            terminated = True
         if point_to_segment_distance( self.cp_queue[0][0],  self.cp_queue[0][1],
                                      self.my_pod.last_position.x, self.my_pod.last_position.y,
                                     self.my_pod.position.x,   self.my_pod.position.y) <= CHECKPOINT_RADIUS:
@@ -165,6 +166,7 @@ class MapPodRacing(gym.Env):
                 terminated = True
             else:
                 reward = CP_REWARD
+                self.cp_done +=1
         else:
             reward += TRAVEL_REWARD
             self.timeout -= 1
@@ -172,7 +174,7 @@ class MapPodRacing(gym.Env):
                 terminated = True
         self.trajectory_reward += reward
         obs = self.get_obs()
-        info = {}
+        info = {"cp_done": self.cp_done}
         return obs, reward, terminated, truncated, info
 
     def render(self):
