@@ -66,7 +66,7 @@ if __name__ == '__main__':
         max_episode_steps=500,  # Prevent infinite episodes
     )
     env = gym.make("gymnasium_env/MapPodRacing-v0")
-    agent = Agent(gamma=0.99,epsilon=1.0,batch_size=500,n_actions=8,eps_end=0.1,input_dims=[8],lr=0.1)
+    agent = Agent(gamma=0.99,epsilon=1.0,batch_size=500,n_actions=8,eps_end=0.01,input_dims=[8],lr=0.01)
     scores =[]
     eps_history= []
     n_games = 200
