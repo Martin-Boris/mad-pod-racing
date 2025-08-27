@@ -70,7 +70,7 @@ if __name__ == '__main__':
     scores =[]
     eps_history= []
     cp_dones = []
-    n_games = 1000
+    n_games = 1
 
     for i in range(n_games):
         score = 0
@@ -97,6 +97,17 @@ if __name__ == '__main__':
         filename = "mad_pod_racing_dqn.png"
         #plot_learning_curve(x, scores, agent.epsilon, filename)
 
+    weight,bias = agent.extract_parameter()
+    print("weight")
+    print(weight[0].shape)
+    print(weight[1].shape)
+    print(weight[2].shape)
+    print(weight[3].shape)
+    print("bias")
+    print(bias[0].shape)
+    print(bias[1].shape)
+    print(bias[2].shape)
+    print(bias[3].shape)
 
     score = 0
     done = False

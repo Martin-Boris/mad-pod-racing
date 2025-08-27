@@ -29,6 +29,9 @@ class DeepQNetwork(nn.Module):
         actions = self.fc4(x)
         return actions
 
+    def extract_parameter(self):
+        return [self.fc1.weight, self.fc2.weight, self.fc3.weight, self.fc4.weight],[self.fc1.bias, self.fc2.bias, self.fc3.bias, self.fc4.bias]
+
 class Agent:
     def __init__(self,gamma,epsilon,lr,input_dims,batch_size,n_actions,max_mem_size=100000,eps_end=0.1,eps_dec=5e-4, random_exploration=False):
         self.gamma = gamma
@@ -119,4 +122,6 @@ class Agent:
 
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
 
+    def extract_parameter(self):
+        return self.Q_eval.extract_parameter()
 
