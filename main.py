@@ -70,7 +70,7 @@ if __name__ == '__main__':
     scores =[]
     eps_history= []
     cp_dones = []
-    n_games = 1
+    n_games = 200
 
     for i in range(n_games):
         score = 0
@@ -93,9 +93,9 @@ if __name__ == '__main__':
 
         print('episode ', i, ' score %.2f' % score, 'avg score %.2f' % avg_score, 'epsilon %.2f' % agent.epsilon, 'avg cp %.2f' % avg_cp_done)
 
-        x= [i+1 for i in range(n_games)]
-        filename = "mad_pod_racing_dqn.png"
-        #plot_learning_curve(x, scores, agent.epsilon, filename)
+    x= [i+1 for i in range(n_games)]
+    filename = "mad_pod_racing.png"
+    plot_learning_curve(x, scores, eps_history, filename)
 
     weight,bias = agent.extract_parameter()
     print("weight")

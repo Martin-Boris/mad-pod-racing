@@ -118,6 +118,8 @@ class Agent:
 
         loss = self.Q_eval.loss(q_target, q_eval).to(self.Q_eval.device)
         loss.backward()
+
+        T.nn.utils.clip_grad_value_(self.Q_eval.parameters(), 100)
         self.Q_eval.optimizer.step()
 
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
