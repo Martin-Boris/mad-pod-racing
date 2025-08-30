@@ -32,8 +32,10 @@ class DeepQNetwork(nn.Module):
     def extract_parameter(self):
         return [self.fc1.weight, self.fc2.weight, self.fc3.weight, self.fc4.weight],[self.fc1.bias, self.fc2.bias, self.fc3.bias, self.fc4.bias]
 
+
+
 class Agent:
-    def __init__(self,gamma,epsilon,lr,input_dims,batch_size,n_actions,max_mem_size=100000,eps_end=0.1,eps_dec=5e-4, random_exploration=False):
+    def __init__(self,gamma,epsilon,lr,input_dims,batch_size,n_actions,max_mem_size=100000,eps_end=0.1,eps_dec=5e-4):
         self.gamma = gamma
         self.epsilon = epsilon
         self.eps_min = eps_end
@@ -43,9 +45,9 @@ class Agent:
         self.mem_size = max_mem_size
         self.batch_size = batch_size
         self.mem_cntr = 0
-        self.random_exploration = random_exploration
+        self.input_dims = input_dims
 
-        self.Q_eval = DeepQNetwork(self.lr,n_actions=n_actions,input_dims=input_dims,fc1_dims=64,fc2_dims=64, fc3_dims=64)
+        self.Q_eval = DeepQNetwork(self.lr,n_actions=n_actions,input_dims=input_dims,fc1_dims=256,fc2_dims=256, fc3_dims=256)
         self.state_memory = np.zeros((self.mem_size,*input_dims), dtype=np.float32)
         self.new_state_memory = np.zeros((self.mem_size,*input_dims), dtype=np.float32)
         self.action_memory = np.zeros(self.mem_size, dtype=np.int32)
@@ -62,38 +64,25 @@ class Agent:
 
         self.mem_cntr += 1
 
+    def clear_memory(self):
+        self.mem_cntr = 0
+        self.state_memory = np.zeros((self.mem_size, *self.input_dims), dtype=np.float32)
+        self.new_state_memory = np.zeros((self.mem_size, *self.input_dims), dtype=np.float32)
+        self.action_memory = np.zeros(self.mem_size, dtype=np.int32)
+        self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
+        self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool)
+
     def choose_action(self, observation):
-        if np.random.rand() <= self.epsilon:
+        if np.random.rand() >= self.epsilon:
             state = T.tensor(observation).to(self.Q_eval.device)
             action = self.Q_eval.forward(state)
             action = T.argmax(action).item()
+            print(action)
         else:
-            # action = np.random.choice(self.action_space)
-            ## to facilitate learning best angle
-
-            target_angle = observation[5]  # angle to cp (in radians)
-            angles = np.array([
-                0,  # 0°
-                np.pi / 6,  # 30°
-                np.pi / 3,  # 60°
-                np.pi / 2,  # 90°
-                2 * np.pi / 3,  # 120°
-                5 * np.pi / 6,  # 150°
-                np.pi,  # 180°
-                7 * np.pi / 6,  # 210°
-                4 * np.pi / 3,  # 240°
-                3 * np.pi / 2,  # 270°
-                5 * np.pi / 3,  # 300°
-                11 * np.pi / 6  # 330°
-            ])
-            # Normalize angular differences to [-π, π]
-            angle_diffs = np.abs((angles - target_angle + np.pi) % (2 * np.pi) - np.pi)
-
-            action = np.argmin(angle_diffs)
-
+            action = np.random.choice(self.action_space)
         return action
 
-    def learn(self):
+    def learn(self, supervised = False):
         if self.mem_cntr < self.batch_size:
             return
 
@@ -122,7 +111,8 @@ class Agent:
         T.nn.utils.clip_grad_value_(self.Q_eval.parameters(), 100)
         self.Q_eval.optimizer.step()
 
-        self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
+        if not supervised:
+            self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
 
     def extract_parameter(self):
         return self.Q_eval.extract_parameter()

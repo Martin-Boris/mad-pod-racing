@@ -1,5 +1,4 @@
 import random
-from asyncio import timeout
 from collections import deque
 from typing import Optional
 
@@ -10,8 +9,7 @@ import pygame
 import math
 
 from gymnasium import spaces
-from gymnasium.core import RenderFrame
-from classes import Pod, Map, Vector, POD_RADIUS, CHECKPOINT_RADIUS, point_to_segment_distance, from_vector
+from classes import Map, Vector, POD_RADIUS, CHECKPOINT_RADIUS, point_to_segment_distance, from_vector
 
 
 """
@@ -65,7 +63,7 @@ class MapPodRacing(gym.Env):
         self.map = None
         self.seed = None
         self.cp_done = 0
-        self.action_space = gym.spaces.Discrete(8)
+        self.action_space = gym.spaces.Discrete(12)
         '''self.angle_map = np.array([
             0,  # 0°
             np.pi / 4,  # 45°
@@ -166,21 +164,16 @@ class MapPodRacing(gym.Env):
         truncated = False
         reward =0
 
-        if (self.my_pod.position.x < -2000
-                or self.my_pod.position.y < -2000
-                or self.my_pod.position.x > ENV_WIDTH+2000
-                or self.my_pod.position.y > ENV_HEIGHT+2000):
-            reward = OUT_SCREEN_REWARD
         if point_to_segment_distance( self.cp_queue[0][0],  self.cp_queue[0][1],
                                      self.my_pod.last_position.x, self.my_pod.last_position.y,
                                     self.my_pod.position.x,   self.my_pod.position.y) <= CHECKPOINT_RADIUS:
             self.cp_queue.popleft()
             self.timeout = TIME_OUT
             if len(self.cp_queue) ==0:
-                reward = END_REWARD
+                reward += END_REWARD
                 terminated = True
             else:
-                reward = CP_REWARD
+                #reward = CP_REWARD
                 self.cp_done +=1
         else:
             reward += TRAVEL_REWARD
@@ -227,3 +220,25 @@ class MapPodRacing(gym.Env):
         if self.window is not None:
             pygame.display.quit()
             pygame.quit()"""
+
+def supervised_action_choose(observation):
+    target_angle = observation[5]  # angle to cp (in radians)
+    angles = np.array([
+        0,  # 0°
+        np.pi / 6,  # 30°
+        np.pi / 3,  # 60°
+        np.pi / 2,  # 90°
+        2 * np.pi / 3,  # 120°
+        5 * np.pi / 6,  # 150°
+        np.pi,  # 180°
+        7 * np.pi / 6,  # 210°
+        4 * np.pi / 3,  # 240°
+        3 * np.pi / 2,  # 270°
+        5 * np.pi / 3,  # 300°
+        11 * np.pi / 6  # 330°
+    ])
+    # Normalize angular differences to [-π, π]
+    angle_diffs = np.abs((angles - target_angle + np.pi) % (2 * np.pi) - np.pi)
+
+    action = np.argmin(angle_diffs)
+    return action
